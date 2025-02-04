@@ -1,0 +1,95 @@
+---
+title: "Car"
+author: "Manu"
+date: "25/10/2018"
+output: html_document
+---
+
+```{r A}
+getwd()
+library(rvest)
+library(dplyr)
+library(lubridate)
+library(stringr)
+library(rebus)
+```
+```{r scraping}
+ratings = c()
+title = c()
+prices = c()
+milage = c()
+for (i in 1:50){
+  html <- read_html(str_c("https://www.cars.com/for-sale/searchresults.action/?page=",i,"&perPage=100&rd=100&searchSource=PAGINATION&shippable-dealers-checkbox=true&showMore=true&sort=relevance&zc=03824&localVehicles=false")) 
+  get_ratings<- function(html){
+    html %>% 
+      html_nodes('.listing-row__details') %>% 
+      html_node('.dealer-rating-stars') %>%
+      html_text() %>% 
+      str_trim() %>% 
+      unlist()
+  }
+  get_title<- function(html){
+  html %>% 
+    html_nodes('.listing-row__details') %>% 
+    html_node('.listing-row__title') %>%
+    html_text() %>% 
+    str_trim() %>% 
+    unlist()
+  }
+  get_price <- function(html){
+  html %>% 
+    html_nodes('.listing-row__details') %>%
+    html_nodes('.listing-row__price') %>%  
+    html_text() %>% 
+    str_trim() %>% 
+    unlist()
+  }
+  get_milage<- function(html){
+  html %>% 
+    html_nodes('.listing-row__details') %>% 
+    html_node('.listing-row__mileage') %>%
+    html_text() %>% 
+    str_trim() %>% 
+    unlist()
+}
+
+  milages <- get_milage(html)
+  milage <- c(milage, milages)
+  price <- get_price(html)
+  prices <- c(prices, price)
+  rate <- get_ratings(html)
+  ratings <- c(ratings, rate)
+  tit <- get_title(html)
+  title <- c(title, tit)
+}
+```
+
+
+```{r DataFrame}
+sd <- data.frame(Ratings = ratings, Title = title, Price = prices, Mileage = milage) 
+```
+
+```{r cleaning_Rating}
+sd$Ratings <- str_remove_all(sd$Ratings, pattern = "(" %R% one_or_more(DGT) %R% " " %R% "reviews" %R% ")")
+#scraped_data$RATE <- str_replace_all(scraped_data$Rate, "[[:punct:]]", "")
+sd$Ratings <- gsub("[^[:digit:]., ]", "", sd$Ratings)
+```
+
+```{r cleaning_Price}
+sd$Price <- str_replace_all(sd$Price, "[^[:alnum:]]", "")
+```
+
+```{r cleaning_Milage}
+y <- str_replace_all(sd$Mileage, "[^[:alnum:]]", "")
+
+sd$Mileage <- str_remove_all(y, pattern = "mi")
+
+```
+
+```{r cleaning_Title}
+sd <- sd %>% separate(Title, c('Year','Make','Model'), remove= TRUE, convert=TRUE, extra='drop',fill='left')
+```
+
+```{r saving}
+write.csv(sd, file = "Web_Scraping_project.csv")
+```
